@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "author": "Tsuki Akiba",
   "scripts": {
-    "import-user": "bun run ./src/scripts/import-user.ts"
+    "import-user": "bun run ./src/scripts/import-user.ts",
+    "show-highests": "bun run ./src/scripts/show-highests.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

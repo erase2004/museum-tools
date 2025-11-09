@@ -5,6 +5,7 @@ import { isUndefined, range } from 'lodash-es';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { DB_URI } from '@/configs/index';
+import { toDBName, toRoundName } from '@/utils/helper';
 
 const argvs = yargs(Bun.argv)
   .scriptName('import-user')
@@ -14,7 +15,7 @@ const argvs = yargs(Bun.argv)
       alias: 'db-number',
       demandOption: false,
       type: 'number',
-      describe: 'database number of single target ',
+      describe: 'database number of single target',
     },
     s: {
       alias: 'start-db-number',
@@ -55,20 +56,12 @@ let targetDbNames: string[];
 
 const { n, s, e } = await argvs;
 if (n) {
-  dbNames = getDBNames([n]);
-  targetDbNames = getTargetDBnames([n]);
+  dbNames = [n].map(toDBName);
+  targetDbNames = [n].map(toRoundName);
 } else {
   const ranges = range(s!, e!);
-  dbNames = getDBNames(ranges);
-  targetDbNames = getTargetDBnames(ranges);
-}
-
-function getDBNames(ranges: number[]) {
-  return ranges.map((v) => `museum-${v}`);
-}
-
-function getTargetDBnames(ranges: number[]) {
-  return ranges.map((v) => `round${v}`);
+  dbNames = ranges.map(toDBName);
+  targetDbNames = ranges.map(toRoundName);
 }
 
 const integer = z.number().int();
