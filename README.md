@@ -28,4 +28,26 @@ Import user from MongoDB into Firestore.
 
 Run with `bun run import-user --help` to see more details.
 
+### [backup.sh](./src/scripts//backup.sh)
 
+Backup single MongoDB database.
+
+Run with `./backup.sh [DB_NAME]`.
+
+`DB_NAME` should be `{string}-{number}` format.
+
+### [restore.sh](./src/scripts/restore.sh)
+
+Restore single MongoDB database from compressed backup file.
+
+Run with `./retore.sh [COMPRESSED_DB_BACKUP_FILE_NAME]`.
+
+`COMPRESSED_DB_BACKUP_FILE_NAME` should be `.tar.gz` file extension
+
+### [build.sh](./src/scripts/build.sh)
+
+Build single Meteor.js based museum server instance.
+
+Run with `./build.sh [PROJECT_DIRECTORY]`.
+
+`PROJECT_DIRECTORY` should be root directory of source code.
