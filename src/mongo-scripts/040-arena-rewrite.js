@@ -1,5 +1,7 @@
 // arena rewrite
 // 適用於第五季之前的紀錄
+const REQUIRED_MIGRATION = 101;
+const MIGRATION_NUMBER = 102;
 
 const arenaFighterAttributeNameList = ['hp', 'sp', 'atk', 'def', 'agi'];
 
@@ -8,6 +10,12 @@ function getTotalInvestedAmount(arenaFighter) {
   return arenaFighterAttributeNameList.reduce((sum, attrName) => {
     return sum + arenaFighter[attrName];
   }, 0);
+}
+
+const migration = db.migrations.findOne();
+if (migration?.version !== REQUIRED_MIGRATION) {
+  print(`Required migration #${REQUIRED_MIGRATION} not found.`);
+  quit();
 }
 
 const bulkOperations = [];
@@ -49,3 +57,4 @@ db.arena.find({winnerList: { $exists: true } }, { _id: 1, winnerList: 1 })
   })
 
 printjson(db.arenaFighters.bulkWrite(bulkOperations));
+printjson(db.migrations.updateOne({}, { $set: { version: MIGRATION_NUMBER }}));

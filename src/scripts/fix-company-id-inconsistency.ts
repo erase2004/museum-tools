@@ -15,6 +15,9 @@ const companySchema = z.object({
   companyName: z.string(),
 });
 
+const REQUIRED_MIGRATION = 100;
+const MIGRATION_NUMBER = 101;
+
 type Company = z.infer<typeof companySchema>;
 
 async function main() {
@@ -25,7 +28,15 @@ async function main() {
 
   for (let n = 1; n <= 6; n++) {
     const dbName = toDBName(n);
-    const dbCompanyArchive = client.db(dbName).collection('companyArchive');
+    const connection = client.db(dbName);
+
+    const dbMigrations = connection.collection('migrations');
+    const migration = await dbMigrations.findOne();
+    if (migration?.version !== REQUIRED_MIGRATION && n != 6) {
+      throw new Error(`[${dbName}] Required migration #${REQUIRED_MIGRATION} not found.`);
+    }
+
+    const dbCompanyArchive = connection.collection('companyArchive');
 
     const companies = await z
       .promise(companySchema.array())
@@ -54,6 +65,8 @@ async function updateRound(
   companyDict: Record<string, string>,
 ) {
   const roundName = toRoundName(roundIndex);
+  const connection = client.db(toDBName(roundIndex));
+
   const updates: Record<string, string> = {};
 
   companies.forEach((company) => {
@@ -71,7 +84,6 @@ async function updateRound(
   if (!toBeUpdatedAmount) return;
 
   try {
-    const connection = client.db(toDBName(roundIndex));
     const replaced: Record<string, string> = {};
     const switched: Record<string, string> = {};
 
@@ -227,6 +239,11 @@ async function updateRound(
 
     tasks.push(updateCompanyIdField(roundName, connection, 'rankCompanyCapital', switched, true));
     tasks.push(updateCompanyIdField(roundName, connection, 'rankCompanyCapital', replaced));
+
+    {
+      const dbMigrations = connection.collection('migrations');
+      tasks.push(dbMigrations.updateOne({}, { $set: { version: MIGRATION_NUMBER } }));
+    }
 
     await Promise.allSettled(tasks);
   } catch (error) {
@@ -722,7 +739,12 @@ async function updateArena(
   console.debug(`[${roundName}] There are ${updateCount} entries in \`arena\` got updated.`);
 }
 
-main().then(() => {
-  console.debug('Finished');
-  process.exit(0);
-});
+main()
+  .then(() => {
+    console.debug('Finished');
+    process.exit(0);
+  })
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
