@@ -548,7 +548,9 @@ async function updateArena(
       bulkOperations.push({
         updateMany: {
           filter: {
-            shuffledFighterCompanyIdList: to,
+            shuffledFighterCompanyIdList: {
+              $exists: true,
+            },
           },
           update: {
             $set: {
@@ -566,7 +568,9 @@ async function updateArena(
       bulkOperations.push({
         updateMany: {
           filter: {
-            shuffledFighterCompanyIdList: from,
+            shuffledFighterCompanyIdList: {
+              $exists: true,
+            },
           },
           update: {
             $set: {
@@ -584,11 +588,74 @@ async function updateArena(
       bulkOperations.push({
         updateMany: {
           filter: {
-            shuffledFighterCompanyIdList: tempId,
+            shuffledFighterCompanyIdList: {
+              $exists: true,
+            },
           },
           update: {
             $set: {
               'shuffledFighterCompanyIdList.$[i]': from,
+            },
+          },
+          arrayFilters: [
+            {
+              i: tempId,
+            },
+          ],
+        },
+      });
+
+      // round 1 to round 4
+      bulkOperations.push({
+        updateMany: {
+          filter: {
+            winnerList: {
+              $exists: true,
+            },
+          },
+          update: {
+            $set: {
+              'winnerList.$[i]': tempId,
+            },
+          },
+          arrayFilters: [
+            {
+              i: to,
+            },
+          ],
+        },
+      });
+
+      bulkOperations.push({
+        updateMany: {
+          filter: {
+            winnerList: {
+              $exists: true,
+            },
+          },
+          update: {
+            $set: {
+              'winnerList.$[i]': to,
+            },
+          },
+          arrayFilters: [
+            {
+              i: from,
+            },
+          ],
+        },
+      });
+
+      bulkOperations.push({
+        updateMany: {
+          filter: {
+            winnerList: {
+              $exists: true,
+            },
+          },
+          update: {
+            $set: {
+              'winnerList.$[i]': from,
             },
           },
           arrayFilters: [
@@ -609,11 +676,34 @@ async function updateArena(
       bulkOperations.push({
         updateMany: {
           filter: {
-            shuffledFighterCompanyIdList: from,
+            shuffledFighterCompanyIdList: {
+              $exists: true,
+            },
           },
           update: {
             $set: {
               'shuffledFighterCompanyIdList.$[i]': to,
+            },
+          },
+          arrayFilters: [
+            {
+              i: from,
+            },
+          ],
+        },
+      });
+
+      // round 1 to round 4
+      bulkOperations.push({
+        updateMany: {
+          filter: {
+            winnerList: {
+              $exists: true,
+            },
+          },
+          update: {
+            $set: {
+              'winnerList.$[i]': to,
             },
           },
           arrayFilters: [
