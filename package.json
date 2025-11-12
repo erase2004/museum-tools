@@ -4,7 +4,8 @@
   "author": "Tsuki Akiba",
   "scripts": {
     "import-user": "bun run ./src/scripts/import-user.ts",
-    "show-highests": "bun run ./src/scripts/show-highests.ts"
+    "show-highests": "bun run ./src/scripts/show-highests.ts",
+    "fix-company-id-inconsistency": "bun run ./src/scripts/fix-company-id-inconsistency.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

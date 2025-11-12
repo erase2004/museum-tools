@@ -29,11 +29,18 @@ Import user from MongoDB into Firestore.
 Run with `bun run import-user --help` to see more details.
 
 
-### [show-highests](./src//scripts//show-highests.ts)
+### [show-highests](./src//cripts//show-highests.ts)
 
 Show highest companies' info
 
 Run with `bun run show-highests --help` to see more details.
+
+
+### [fix-company-id-inconsistency](./src/scripts/fix-company-id-inconsistency.ts)
+
+Fix company id inconsistency issues between `round1` to `round6`.
+
+Please apply db migration ([043-rename-name-to-companyName-in-companyArchive](./src/mongo-scripts/043-rename-name-to-companyName-in-companyArchive.js)) before execute the script.
 
 
 ### [backup.sh](./src/scripts//backup.sh)
