@@ -201,6 +201,12 @@ async function updateRound(
       tasks.push(updateArena(roundName, dbArena, replaced));
     }
 
+    {
+      const dbUsers = connection.collection('users');
+      tasks.push(updateUserFavorites(roundName, dbUsers, switched, true));
+      tasks.push(updateUserFavorites(roundName, dbUsers, replaced));
+    }
+
     tasks.push(updateCompanyIdField(roundName, connection, 'companyStones', switched, true));
     tasks.push(updateCompanyIdField(roundName, connection, 'companyStones', replaced));
 
@@ -737,6 +743,118 @@ async function updateArena(
   }
 
   console.debug(`[${roundName}] There are ${updateCount} entries in \`arena\` got updated.`);
+}
+
+async function updateUserFavorites(
+  roundName: string,
+  collection: Collection,
+  fromToMap: Record<string, string>,
+  switched?: boolean,
+) {
+  if (!Object.keys(fromToMap).length) return;
+
+  let updateCount = 0;
+
+  if (switched) {
+    const tempId = 'temp-company-id';
+    const bulkOperations = [];
+
+    for (const [from, to] of Object.entries(fromToMap)) {
+      bulkOperations.push({
+        updateMany: {
+          filter: {
+            favorite: {
+              $exists: true,
+            },
+          },
+          update: {
+            $set: {
+              'favorite.$[i]': tempId,
+            },
+          },
+          arrayFilters: [
+            {
+              i: to,
+            },
+          ],
+        },
+      });
+
+      bulkOperations.push({
+        updateMany: {
+          filter: {
+            favorite: {
+              $exists: true,
+            },
+          },
+          update: {
+            $set: {
+              'favorite.$[i]': to,
+            },
+          },
+          arrayFilters: [
+            {
+              i: from,
+            },
+          ],
+        },
+      });
+
+      bulkOperations.push({
+        updateMany: {
+          filter: {
+            favorite: {
+              $exists: true,
+            },
+          },
+          update: {
+            $set: {
+              'favorite.$[i]': from,
+            },
+          },
+          arrayFilters: [
+            {
+              i: tempId,
+            },
+          ],
+        },
+      });
+    }
+
+    const result = await collection.bulkWrite(bulkOperations, { ordered: true });
+    updateCount += result.modifiedCount;
+  } else {
+    const bulkOperations = [];
+
+    for (const [from, to] of Object.entries(fromToMap)) {
+      bulkOperations.push({
+        updateMany: {
+          filter: {
+            favorite: {
+              $exists: true,
+            },
+          },
+          update: {
+            $set: {
+              'favorite.$[i]': to,
+            },
+          },
+          arrayFilters: [
+            {
+              i: from,
+            },
+          ],
+        },
+      });
+    }
+
+    const result = await collection.bulkWrite(bulkOperations);
+    updateCount += result.modifiedCount;
+  }
+
+  console.debug(
+    `[${roundName}] There are ${updateCount} entries in \`user.favorite\` got updated.`,
+  );
 }
 
 main()
