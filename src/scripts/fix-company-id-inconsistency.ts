@@ -228,6 +228,9 @@ async function updateRound(
     tasks.push(updateCompanyIdField(roundName, connection, 'userOwnedProducts', switched, true));
     tasks.push(updateCompanyIdField(roundName, connection, 'userOwnedProducts', replaced));
 
+    tasks.push(updateCompanyIdField(roundName, connection, 'productLike', switched, true));
+    tasks.push(updateCompanyIdField(roundName, connection, 'productLike', replaced));
+
     tasks.push(updateCompanyIdField(roundName, connection, 'log', switched, true));
     tasks.push(updateCompanyIdField(roundName, connection, 'log', replaced));
 
