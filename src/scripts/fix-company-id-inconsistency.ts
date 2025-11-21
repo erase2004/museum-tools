@@ -9,16 +9,14 @@ import { type Collection, type Db, MongoClient } from 'mongodb';
 import { DB_URI } from '@/configs/index';
 import { map, range, zipObject } from 'lodash-es';
 import { toDBName, toRoundName } from '@/utils/helper';
+import { companySchema } from '@/utils/schema';
 
-const companySchema = z.object({
-  _id: z.coerce.string(),
-  companyName: z.string(),
-});
+const schema = companySchema.pick({ _id: true, companyName: true });
 
 const REQUIRED_MIGRATION = 100;
 const MIGRATION_NUMBER = 101;
 
-type Company = z.infer<typeof companySchema>;
+type Company = z.infer<typeof schema>;
 
 async function main() {
   const client = new MongoClient(DB_URI);
@@ -39,7 +37,7 @@ async function main() {
     const dbCompanyArchive = connection.collection('companyArchive');
 
     const companies = await z
-      .promise(companySchema.array())
+      .promise(schema.array())
       // @ts-expect-error: it should be ok
       .parseAsync(dbCompanyArchive.find({}, { _id: true, companyName: true }).toArray());
 
