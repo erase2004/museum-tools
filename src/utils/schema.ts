@@ -1,4 +1,47 @@
+import type { Db } from 'mongodb';
 import z from 'zod';
+
+export function getDBMigrations(db: Db) {
+  return db.collection('migrations');
+}
+
+export function getDBCompanies(db: Db) {
+  return db.collection('companies');
+}
+
+export function getDBCompanyArchive(db: Db) {
+  return db.collection('companyArchive');
+}
+
+export function getDBViolationCases(db: Db) {
+  return db.collection('violationCases');
+}
+
+export function getDBArena(db: Db) {
+  return db.collection('arena');
+}
+
+export function getDBArenaLog(db: Db, arenaId: string) {
+  return db.collection(`arenaLog${arenaId}`);
+}
+
+export function getDBUsers(db: Db) {
+  return db.collection('users');
+}
+
+export function getDBUserOwnProducts(db: Db) {
+  return db.collection('userOwnedProducts');
+}
+
+export function getDBDirectors(db: Db) {
+  return db.collection('directors');
+}
+
+export function getDBSeason(db: Db) {
+  return db.collection('season');
+}
+
+//////
 
 export const objectId = z.coerce.string();
 
@@ -79,5 +122,9 @@ export const ownProductSchema = z.object({
 });
 
 export const seasonSchema = z.object({
+  _id: objectId,
+});
+
+export const arenaSchema = z.object({
   _id: objectId,
 });

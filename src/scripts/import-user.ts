@@ -12,6 +12,11 @@ import {
   userSchema,
   ownProductSchema,
   seasonSchema,
+  getDBUsers,
+  getDBDirectors,
+  getDBSeason,
+  getDBUserOwnProducts,
+  getDBCompanies,
 } from '@/utils/schema';
 
 const argvs = yargs(Bun.argv)
@@ -80,11 +85,11 @@ async function main() {
 
     try {
       // users
-      const dbUsers = connection.collection('users');
+      const dbUsers = getDBUsers(connection);
       const users = await z.promise(userSchema.array()).parseAsync(dbUsers.find({}).toArray());
 
       // user own stocks
-      const dbDirectors = connection.collection('directors');
+      const dbDirectors = getDBDirectors(connection);
       const ownStockList =
         (await z.promise(directorSchema.array()).parseAsync(dbDirectors.find({}).toArray())) ?? [];
       const fullMap = groupBy(ownStockList, 'u');
@@ -97,11 +102,11 @@ async function main() {
       );
 
       // user own product values
-      const dbSeason = connection.collection('season');
+      const dbSeason = getDBSeason(connection);
       const lastSeason = await z
         .promise(seasonSchema)
         .parseAsync(dbSeason.findOne({}, { sort: { beginDate: -1 } }));
-      const dbUserOwnedProduct = connection.collection('userOwnedProducts');
+      const dbUserOwnedProduct = getDBUserOwnProducts(connection);
       const list =
         (await z
           .promise(ownProductSchema.array())
@@ -125,7 +130,7 @@ async function main() {
       );
 
       // company
-      const dbCompanies = connection.collection('companies');
+      const dbCompanies = getDBCompanies(connection);
       const companyList =
         (await z.promise(companySchema.array()).parseAsync(dbCompanies.find({}).toArray())) ?? [];
       const companyMap = keyBy(companyList, '_id');

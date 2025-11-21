@@ -5,11 +5,21 @@
  */
 
 import z from 'zod';
-import { type Collection, type Db, MongoClient } from 'mongodb';
+import { type Db, MongoClient } from 'mongodb';
 import { DB_URI } from '@/configs/index';
 import { map, range, zipObject } from 'lodash-es';
 import { toDBName, toRoundName } from '@/utils/helper';
-import { companySchema } from '@/utils/schema';
+import {
+  arenaSchema,
+  companySchema,
+  getDBArena,
+  getDBArenaLog,
+  getDBCompanies,
+  getDBCompanyArchive,
+  getDBMigrations,
+  getDBUsers,
+  getDBViolationCases,
+} from '@/utils/schema';
 
 const schema = companySchema.pick({ _id: true, companyName: true });
 
@@ -28,13 +38,13 @@ async function main() {
     const dbName = toDBName(n);
     const connection = client.db(dbName);
 
-    const dbMigrations = connection.collection('migrations');
+    const dbMigrations = getDBMigrations(connection);
     const migration = await dbMigrations.findOne();
     if (migration?.version !== REQUIRED_MIGRATION && n != 6) {
       throw new Error(`[${dbName}] Required migration #${REQUIRED_MIGRATION} not found.`);
     }
 
-    const dbCompanyArchive = connection.collection('companyArchive');
+    const dbCompanyArchive = getDBCompanyArchive(connection);
 
     const companies = await z
       .promise(schema.array())
@@ -89,7 +99,7 @@ async function updateRound(
     for (const [from, to] of Object.entries(updates)) {
       {
         // dbCompanyArchive
-        const dbCompanyArchive = connection.collection('companyArchive');
+        const dbCompanyArchive = getDBCompanyArchive(connection);
 
         const target = await dbCompanyArchive.findOne({
           // @ts-expect-error: from is valid ObjectId
@@ -132,7 +142,7 @@ async function updateRound(
 
       {
         // dbCompanies
-        const dbCompanies = connection.collection('companies');
+        const dbCompanies = getDBCompanies(connection);
 
         const target = await dbCompanies.findOne({
           // @ts-expect-error: from is valid ObjectId
@@ -177,32 +187,26 @@ async function updateRound(
     const tasks = [];
 
     {
-      const dbViolationCases = connection.collection('violationCases');
-      tasks.push(updateViolationCases(roundName, dbViolationCases, switched, true));
-      tasks.push(updateViolationCases(roundName, dbViolationCases, replaced));
+      tasks.push(updateViolationCases(roundName, connection, switched, true));
+      tasks.push(updateViolationCases(roundName, connection, replaced));
     }
 
     {
-      const arenaSchema = z.object({
-        _id: z.coerce.string(),
-      });
-      const dbArena = connection.collection('arena');
+      const dbArena = getDBArena(connection);
       const arenas = await z.promise(arenaSchema.array()).parseAsync(dbArena.find({}).toArray());
 
       for (const arena of arenas) {
-        const collectionName = `arenaLog${arena._id}`;
-        tasks.push(updateArenaLogs(roundName, connection, collectionName, switched, true));
-        tasks.push(updateArenaLogs(roundName, connection, collectionName, replaced));
+        tasks.push(updateArenaLogs(roundName, connection, arena._id, switched, true));
+        tasks.push(updateArenaLogs(roundName, connection, arena._id, replaced));
       }
 
-      tasks.push(updateArena(roundName, dbArena, switched, true));
-      tasks.push(updateArena(roundName, dbArena, replaced));
+      tasks.push(updateArena(roundName, connection, switched, true));
+      tasks.push(updateArena(roundName, connection, replaced));
     }
 
     {
-      const dbUsers = connection.collection('users');
-      tasks.push(updateUserFavorites(roundName, dbUsers, switched, true));
-      tasks.push(updateUserFavorites(roundName, dbUsers, replaced));
+      tasks.push(updateUserFavorites(roundName, connection, switched, true));
+      tasks.push(updateUserFavorites(roundName, connection, replaced));
     }
 
     tasks.push(updateCompanyIdField(roundName, connection, 'companyStones', switched, true));
@@ -248,7 +252,7 @@ async function updateRound(
     tasks.push(updateCompanyIdField(roundName, connection, 'rankCompanyCapital', replaced));
 
     {
-      const dbMigrations = connection.collection('migrations');
+      const dbMigrations = getDBMigrations(connection);
       tasks.push(dbMigrations.updateOne({}, { $set: { version: MIGRATION_NUMBER } }));
     }
 
@@ -338,11 +342,13 @@ async function updateCompanyIdField(
 
 async function updateViolationCases(
   roundName: string,
-  collection: Collection,
+  connection: Db,
   fromToMap: Record<string, string>,
   switched?: boolean,
 ) {
   if (!Object.keys(fromToMap).length) return;
+
+  const dbViolationCases = getDBViolationCases(connection);
 
   let updateCount = 0;
 
@@ -412,7 +418,7 @@ async function updateViolationCases(
       });
     }
 
-    const result = await collection.bulkWrite(bulkOperations, { ordered: true });
+    const result = await dbViolationCases.bulkWrite(bulkOperations, { ordered: true });
     updateCount += result.modifiedCount;
   } else {
     const bulkOperations = [];
@@ -439,7 +445,7 @@ async function updateViolationCases(
       });
     }
 
-    const result = await collection.bulkWrite(bulkOperations);
+    const result = await dbViolationCases.bulkWrite(bulkOperations);
     updateCount += result.modifiedCount;
   }
 
@@ -451,13 +457,13 @@ async function updateViolationCases(
 async function updateArenaLogs(
   roundName: string,
   connection: Db,
-  collectionName: string,
+  arenaId: string,
   fromToMap: Record<string, string>,
   switched?: boolean,
 ) {
   if (!Object.keys(fromToMap).length) return;
 
-  const collection = connection.collection(collectionName);
+  const collection = getDBArenaLog(connection, arenaId);
   let updateCount = 0;
 
   if (switched) {
@@ -550,17 +556,19 @@ async function updateArenaLogs(
   }
 
   console.debug(
-    `[${roundName}] There are ${updateCount} entries in \`${collectionName}\` got updated.`,
+    `[${roundName}] There are ${updateCount} entries in arena log \`${arenaId}\` got updated.`,
   );
 }
 
 async function updateArena(
   roundName: string,
-  collection: Collection,
+  connection: Db,
   fromToMap: Record<string, string>,
   switched?: boolean,
 ) {
   if (!Object.keys(fromToMap).length) return;
+
+  const dbArena = getDBArena(connection);
 
   let updateCount = 0;
 
@@ -691,7 +699,7 @@ async function updateArena(
       });
     }
 
-    const result = await collection.bulkWrite(bulkOperations, { ordered: true });
+    const result = await dbArena.bulkWrite(bulkOperations, { ordered: true });
     updateCount += result.modifiedCount;
   } else {
     const bulkOperations = [];
@@ -739,7 +747,7 @@ async function updateArena(
       });
     }
 
-    const result = await collection.bulkWrite(bulkOperations);
+    const result = await dbArena.bulkWrite(bulkOperations);
     updateCount += result.modifiedCount;
   }
 
@@ -748,11 +756,13 @@ async function updateArena(
 
 async function updateUserFavorites(
   roundName: string,
-  collection: Collection,
+  connection: Db,
   fromToMap: Record<string, string>,
   switched?: boolean,
 ) {
   if (!Object.keys(fromToMap).length) return;
+
+  const dbUsers = getDBUsers(connection);
 
   let updateCount = 0;
 
@@ -822,7 +832,7 @@ async function updateUserFavorites(
       });
     }
 
-    const result = await collection.bulkWrite(bulkOperations, { ordered: true });
+    const result = await dbUsers.bulkWrite(bulkOperations, { ordered: true });
     updateCount += result.modifiedCount;
   } else {
     const bulkOperations = [];
@@ -849,7 +859,7 @@ async function updateUserFavorites(
       });
     }
 
-    const result = await collection.bulkWrite(bulkOperations);
+    const result = await dbUsers.bulkWrite(bulkOperations);
     updateCount += result.modifiedCount;
   }
 
