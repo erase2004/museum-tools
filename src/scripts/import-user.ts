@@ -6,18 +6,11 @@ import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { DB_URI } from '@/configs/index';
 import { toDBName, toRoundName } from '@/utils/helper';
-import {
-  companySchema,
-  directorSchema,
-  userSchema,
-  ownProductSchema,
-  seasonSchema,
-  getDBUsers,
-  getDBDirectors,
-  getDBSeason,
-  getDBUserOwnProducts,
-  getDBCompanies,
-} from '@/utils/schema';
+import { getDBCompanies, companySchema } from '@/utils/dbCompanies';
+import { getDBUserOwnedProduct, userOwnedProductSchema } from '@/utils/dbUserOwnedProduct';
+import { getDBDirectors, directorSchema } from '@/utils/dbDirectors';
+import { getDBSeason, seasonSchema } from '@/utils/dbSeason';
+import { getDBUsers, profileSchema, userSchema } from '@/utils/dbUsers';
 
 const argvs = yargs(Bun.argv)
   .scriptName('import-user')
@@ -85,13 +78,35 @@ async function main() {
 
     try {
       // users
+      const _userSchema = userSchema
+        .pick({
+          _id: true,
+          username: true,
+          favorite: true,
+        })
+        .extend({
+          profile: profileSchema.pick({
+            name: true,
+            roles: true,
+            validateType: true,
+            money: true,
+            vouchers: true,
+            voteTickets: true,
+            stones: true,
+          }),
+        });
       const dbUsers = getDBUsers(connection);
-      const users = await z.promise(userSchema.array()).parseAsync(dbUsers.find({}).toArray());
+      const users = await z.promise(_userSchema.array()).parseAsync(dbUsers.find({}).toArray());
 
       // user own stocks
+      const _directorSchema = directorSchema
+        .pick({ companyId: true, userId: true, stocks: true })
+        // 縮短 key，減少輸出的檔案尺寸
+        .transform((value) => ({ u: value.userId, c: value.companyId, s: value.stocks }));
+
       const dbDirectors = getDBDirectors(connection);
       const ownStockList =
-        (await z.promise(directorSchema.array()).parseAsync(dbDirectors.find({}).toArray())) ?? [];
+        (await z.promise(_directorSchema.array()).parseAsync(dbDirectors.find({}).toArray())) ?? [];
       const fullMap = groupBy(ownStockList, 'u');
       const ownStockMap = entries(fullMap).reduce(
         (m, [userId, values]) => {
@@ -102,11 +117,19 @@ async function main() {
       );
 
       // user own product values
+      const _seasonSchema = seasonSchema.pick({ _id: true });
       const dbSeason = getDBSeason(connection);
       const lastSeason = await z
-        .promise(seasonSchema)
+        .promise(_seasonSchema)
         .parseAsync(dbSeason.findOne({}, { sort: { beginDate: -1 } }));
-      const dbUserOwnedProduct = getDBUserOwnProducts(connection);
+
+      const ownProductSchema = userOwnedProductSchema.pick({
+        userId: true,
+        companyId: true,
+        amount: true,
+        price: true,
+      });
+      const dbUserOwnedProduct = getDBUserOwnedProduct(connection);
       const list =
         (await z
           .promise(ownProductSchema.array())
@@ -130,9 +153,10 @@ async function main() {
       );
 
       // company
+      const _companySchema = companySchema.pick({ _id: true, companyName: true, isSeal: true });
       const dbCompanies = getDBCompanies(connection);
       const companyList =
-        (await z.promise(companySchema.array()).parseAsync(dbCompanies.find({}).toArray())) ?? [];
+        (await z.promise(_companySchema.array()).parseAsync(dbCompanies.find({}).toArray())) ?? [];
       const companyMap = keyBy(companyList, '_id');
 
       console.debug(`[${dbName}] There are ${users.length} users`);

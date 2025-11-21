@@ -9,24 +9,20 @@ import { type Db, MongoClient } from 'mongodb';
 import { DB_URI } from '@/configs/index';
 import { map, range, zipObject } from 'lodash-es';
 import { toDBName, toRoundName } from '@/utils/helper';
-import {
-  arenaSchema,
-  companySchema,
-  getDBArena,
-  getDBArenaLog,
-  getDBCompanies,
-  getDBCompanyArchive,
-  getDBMigrations,
-  getDBUsers,
-  getDBViolationCases,
-} from '@/utils/schema';
+import { getDBMigrations } from '@/utils/dbMigrations';
+import { getDBCompanies, companySchema } from '@/utils/dbCompanies';
+import { getDBCompanyArchive } from '@/utils/dbCompanyArchive';
+import { getDBViolationCases } from '@/utils/dbViolationCases';
+import { getDBArena, arenaSchema } from '@/utils/dbArena';
+import { getDBArenaLog } from '@/utils/dbArenaLog';
+import { getDBUsers } from '@/utils/dbUsers';
 
-const schema = companySchema.pick({ _id: true, companyName: true });
+const _companySchema = companySchema.pick({ _id: true, companyName: true });
 
 const REQUIRED_MIGRATION = 100;
 const MIGRATION_NUMBER = 101;
 
-type Company = z.infer<typeof schema>;
+type Company = z.infer<typeof _companySchema>;
 
 async function main() {
   const client = new MongoClient(DB_URI);
@@ -47,7 +43,7 @@ async function main() {
     const dbCompanyArchive = getDBCompanyArchive(connection);
 
     const companies = await z
-      .promise(schema.array())
+      .promise(_companySchema.array())
       // @ts-expect-error: it should be ok
       .parseAsync(dbCompanyArchive.find({}, { _id: true, companyName: true }).toArray());
 
@@ -192,8 +188,9 @@ async function updateRound(
     }
 
     {
+      const _arenaSchema = arenaSchema.pick({ _id: true });
       const dbArena = getDBArena(connection);
-      const arenas = await z.promise(arenaSchema.array()).parseAsync(dbArena.find({}).toArray());
+      const arenas = await z.promise(_arenaSchema.array()).parseAsync(dbArena.find({}).toArray());
 
       for (const arena of arenas) {
         tasks.push(updateArenaLogs(roundName, connection, arena._id, switched, true));
@@ -463,7 +460,7 @@ async function updateArenaLogs(
 ) {
   if (!Object.keys(fromToMap).length) return;
 
-  const collection = getDBArenaLog(connection, arenaId);
+  const dbArenaLog = getDBArenaLog(connection, arenaId);
   let updateCount = 0;
 
   if (switched) {
@@ -526,7 +523,7 @@ async function updateArenaLogs(
       });
     }
 
-    const result = await collection.bulkWrite(bulkOperations, { ordered: true });
+    const result = await dbArenaLog.bulkWrite(bulkOperations, { ordered: true });
     updateCount += result.modifiedCount;
   } else {
     const bulkOperations = [];
@@ -551,7 +548,7 @@ async function updateArenaLogs(
       });
     }
 
-    const result = await collection.bulkWrite(bulkOperations);
+    const result = await dbArenaLog.bulkWrite(bulkOperations);
     updateCount += result.modifiedCount;
   }
 
