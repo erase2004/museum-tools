@@ -68,3 +68,8 @@ Build single Meteor.js based museum server instance.
 Run with `./build.sh [PROJECT_DIRECTORY]`.
 
 `PROJECT_DIRECTORY` should be root directory of source code.
+
+
+## License
+
+[MIT](./LICENSE)
