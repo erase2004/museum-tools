@@ -168,7 +168,7 @@ async function main() {
 
         const data = {
           ...user,
-          ownStock: ownStockMap[id] ?? {},
+          ownStock: ownStockMap[id] ?? [],
           productValue: ownProductValueMap[id] ?? {},
           favorite: [],
           favoriteV2: user.favorite.map((id) => companyMap[id]),
